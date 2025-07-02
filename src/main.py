@@ -17,8 +17,9 @@ console = Console()
 @click.option('--interactive', '-i', is_flag=True, help='启动交互模式')
 @click.option('--system', '-s', help='系统提示词')
 @click.option('--config', 'show_config', is_flag=True, help='显示当前配置并提供修改选项')
+@click.option('--disable-stream', is_flag=True, help='禁用流式输出（默认启用）')
 @click.version_option(version='0.1.0')
-def cli(message, interactive, system, show_config):
+def cli(message, interactive, system, show_config, disable_stream):
     """
     OpenAI兼容 AI 命令行聊天工具
     
@@ -28,6 +29,8 @@ def cli(message, interactive, system, show_config):
     
     chat-cli --interactive  # 交互模式
     
+    chat-cli --disable-stream "请介绍一下自己"  # 禁用流式输出
+    
     chat-cli --config  # 查看配置并可选择修改
     """
     # 如果要配置，运行配置向导
@@ -36,7 +39,9 @@ def cli(message, interactive, system, show_config):
         return
     
     # 执行聊天功能
-    run_chat_command(message, interactive, system)
+    # 默认启用流式输出，除非用户明确禁用
+    stream = not disable_stream
+    run_chat_command(message, interactive, system, stream)
 
 
 def run_config_command():
@@ -305,7 +310,7 @@ OPENAI_MODEL={new_config['OPENAI_MODEL']}
         sys.exit(1)
 
 
-def run_chat_command(message, interactive, system):
+def run_chat_command(message, interactive, system, stream=False):
     """执行聊天命令的核心逻辑"""
     try:
         client = OpenAIClient()
@@ -319,34 +324,69 @@ def run_chat_command(message, interactive, system):
         sys.exit(1)
     
     if interactive:
-        run_interactive_mode(client, system)
+        run_interactive_mode(client, system, stream)
     elif message:
-        run_single_message(client, message, system)
+        run_single_message(client, message, system, stream)
     else:
         console.print("请提供消息或使用 --interactive 模式")
         console.print("使用 --help 查看帮助信息")
 
 
-def run_single_message(client: OpenAIClient, message: str, system_prompt: str = None):
-    response = client.chat(message, system_prompt)
-    console.print(Panel(Text(response, style="bold"), title="🤖 AI Assistant"))
+def run_single_message(client: OpenAIClient, message: str, system_prompt: str = None, stream: bool = False):
+    """运行单次问答模式"""
+    if stream:
+        console.print(Panel("🤖 AI Assistant (流式输出)", style="bold blue"))
+        console.print()
+        
+        full_response = ""
+        try:
+            for chunk in client.chat_stream(message, system_prompt):
+                console.print(chunk, end="", style="bold")
+                full_response += chunk
+            console.print()  # 换行
+            console.print()
+        except Exception as e:
+            console.print(f"\n[red]API调用失败: {e}[/red]")
+    else:
+        try:
+            response = client.chat(message, system_prompt)
+            console.print(Panel(Text(response, style="bold"), title="🤖 AI Assistant"))
+        except Exception as e:
+            console.print(f"[red]API调用失败: {e}[/red]")
 
-def run_interactive_mode(client: OpenAIClient, system_prompt: str = None):
-    console.print(Panel("进入交互模式，输入 'exit' 退出。", title="🤖 AI Assistant"))
+def run_interactive_mode(client: OpenAIClient, system_prompt: str = None, stream: bool = False):
+    """运行交互模式"""
+    if stream:
+        console.print(Panel("进入交互模式（流式输出），输入 'exit' 退出。", title="🤖 AI Assistant"))
+    else:
+        console.print(Panel("进入交互模式，输入 'exit' 退出。", title="🤖 AI Assistant"))
+    
     history = []
     if system_prompt:
         history.append({"role": "system", "content": system_prompt})
     else:
         history.append({"role": "system", "content": "You are a helpful assistant"})
+    
     while True:
         user_input = Prompt.ask("[bold green]你[/bold green]")
         if user_input.strip().lower() in ["exit", "quit", ":q", "q"]:
             console.print("[yellow]已退出交互模式[/yellow]")
             break
         history.append({"role": "user", "content": user_input})
+        
         try:
-            response = client.chat_with_history(history)
-            history.append({"role": "assistant", "content": response})
-            console.print(Panel(Text(response, style="bold"), title="🤖 AI Assistant"))
+            if stream:
+                console.print("[bold blue]🤖 AI:[/bold blue] ", end="")
+                full_response = ""
+                for chunk in client.chat_with_history_stream(history):
+                    console.print(chunk, end="", style="bold")
+                    full_response += chunk
+                console.print()  # 换行
+                console.print()
+                history.append({"role": "assistant", "content": full_response})
+            else:
+                response = client.chat_with_history(history)
+                history.append({"role": "assistant", "content": response})
+                console.print(Panel(Text(response, style="bold"), title="🤖 AI Assistant"))
         except Exception as e:
             console.print(f"[red]API调用失败: {e}[/red]")

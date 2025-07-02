@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Generator
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -41,7 +41,7 @@ class OpenAIClient:
             base_url=self.base_url
         )
     
-    def chat(self, message: str, system_prompt: Optional[str] = None) -> str:
+    def chat(self, message: str, system_prompt: Optional[str] = None, stream: bool = False):
         """Send a single message and get response."""
         messages = []
         
@@ -52,24 +52,64 @@ class OpenAIClient:
         
         messages.append({"role": "user", "content": message})
         
+        if stream:
+            return self._chat_stream(messages)
+        else:
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    stream=False
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                raise Exception(f"API call failed: {str(e)}")
+    
+    def chat_with_history(self, messages: List[Dict[str, str]], stream: bool = False):
+        """Send messages with conversation history."""
+        if stream:
+            return self._chat_stream(messages)
+        else:
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    stream=False
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                raise Exception(f"API call failed: {str(e)}")
+    
+    def _chat_stream(self, messages: List[Dict[str, str]]) -> Generator[str, None, None]:
+        """Handle streaming chat completion."""
         try:
-            response = self.client.chat.completions.create(
+            stream = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                stream=False
+                stream=True
             )
-            return response.choices[0].message.content
+            
+            for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    content = chunk.choices[0].delta.content
+                    yield content
+                    
         except Exception as e:
             raise Exception(f"API call failed: {str(e)}")
     
-    def chat_with_history(self, messages: List[Dict[str, str]]) -> str:
-        """Send messages with conversation history."""
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                stream=False
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            raise Exception(f"API call failed: {str(e)}")
+    def chat_stream(self, message: str, system_prompt: Optional[str] = None) -> Generator[str, None, None]:
+        """Send a single message and get streaming response."""
+        messages = []
+        
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        else:
+            messages.append({"role": "system", "content": "You are a helpful assistant"})
+        
+        messages.append({"role": "user", "content": message})
+        
+        return self._chat_stream(messages)
+    
+    def chat_with_history_stream(self, messages: List[Dict[str, str]]) -> Generator[str, None, None]:
+        """Send messages with conversation history and get streaming response."""
+        return self._chat_stream(messages)
