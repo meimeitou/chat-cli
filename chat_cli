@@ -6,7 +6,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 from rich.prompt import Prompt
-from src.client import DeepSeekClient
+from src.client import OpenAIClient
 
 
 console = Console()
@@ -19,7 +19,7 @@ console = Console()
 @click.version_option(version='0.1.0')
 def cli(message, interactive, system):
     """
-    DeepSeek AI 命令行聊天工具
+    OpenAI 兼容 AI 命令行聊天工具
     
     使用示例:
     
@@ -28,10 +28,10 @@ def cli(message, interactive, system):
     chat-cli --interactive  # 交互模式
     """
     try:
-        client = DeepSeekClient()
+        client = OpenAIClient()
     except ValueError as e:
         console.print(f"[red]错误: {e}[/red]")
-        console.print("[yellow]请设置 DEEPSEEK_API_KEY 环境变量[/yellow]")
+        console.print("[yellow]请设置 OPENAI_API_KEY 环境变量[/yellow]")
         console.print("请查看 README.md 获取配置说明")
         sys.exit(1)
     except Exception as e:
@@ -47,7 +47,7 @@ def cli(message, interactive, system):
         console.print("使用 --help 查看帮助信息")
 
 
-def run_single_message(client: DeepSeekClient, message: str, system_prompt: str = None):
+def run_single_message(client: OpenAIClient, message: str, system_prompt: str = None):
     """运行单次问答模式."""
     try:
         with console.status("[bold green]正在思考中..."):
@@ -63,9 +63,9 @@ def run_single_message(client: DeepSeekClient, message: str, system_prompt: str 
         sys.exit(1)
 
 
-def run_interactive_mode(client: DeepSeekClient, system_prompt: str = None):
+def run_interactive_mode(client: OpenAIClient, system_prompt: str = None):
     """运行交互模式."""
-    console.print("[bold green]🤖 欢迎使用 DeepSeek AI 聊天工具![/bold green]")
+    console.print("[bold green]🤖 欢迎使用 OpenAI 兼容 AI 聊天工具![/bold green]")
     console.print("[dim]输入 'quit' 或 'exit' 退出，输入 'clear' 清空对话历史[/dim]")
     console.print()
     

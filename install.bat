@@ -55,7 +55,7 @@ REM 设置环境文件
 if not exist ".env" (
     copy ".env.example" ".env"
     echo ✅ 已创建.env配置文件
-    echo ⚠️  请编辑.env文件，添加你的DeepSeek API Key
+    echo ⚠️  请编辑.env文件，添加你的 OpenAI 兼容 API Key
 ) else (
     echo ℹ️  .env文件已存在
 )
@@ -77,7 +77,7 @@ echo ============
 echo.
 echo 📖 使用方法:
 echo 1. 配置API Key:
-echo    编辑.env文件，将DEEPSEEK_API_KEY设置为你的API Key
+echo    编辑.env文件，将OPENAI_API_KEY设置为你的API Key
 echo.
 echo 2. 基本使用:
 echo    poetry run chat-cli "你好，请介绍一下自己"

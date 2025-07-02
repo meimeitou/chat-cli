@@ -9,7 +9,7 @@
 - 🎨 **美观的终端输出** - 使用Rich库提供彩色和格式化输出
 - ⚙️ **自定义系统提示词** - 定制AI行为和角色
 - 🔧 **交互式配置向导** - 简单易用的API配置
-- 🌐 **OpenAI兼容API支持** - 支持OpenAI、DeepSeek等多种AI服务
+- 🌐 **OpenAI兼容API支持** - 支持OpenAI、Claude、通义千问等多种AI服务
 - 📦 **多种安装方式** - Poetry、pip、一键脚本
 - 🧪 **完整测试覆盖** - 单元测试保证代码质量
 - 🛠️ **开发友好** - 标准化项目结构和工具链
@@ -17,7 +17,7 @@
 ## 📋 系统要求
 
 - Python 3.8.1+
-- OpenAI兼容API密钥（OpenAI、DeepSeek、本地模型等）
+- OpenAI兼容API密钥（OpenAI、Claude、通义千问等）
 
 ## 🚀 快速安装
 
@@ -126,12 +126,12 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-3.5-turbo
 ```
 
-#### DeepSeek
+#### 通义千问
 
 ```env
 OPENAI_API_KEY=sk-...
-OPENAI_BASE_URL=https://api.deepseek.com
-OPENAI_MODEL=deepseek-chat
+OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+OPENAI_MODEL=qwen-plus
 ```
 
 #### 本地模型服务
@@ -328,7 +328,7 @@ MIT License
 ## 🔗 相关链接
 
 - [OpenAI API](https://platform.openai.com/)
-- [DeepSeek API](https://platform.deepseek.com/)
+- [通义千问 API](https://dashscope.aliyuncs.com/)
 - [Poetry文档](https://python-poetry.org/docs/)
 - [Click框架](https://click.palletsprojects.com/)
 - [Rich库](https://rich.readthedocs.io/)

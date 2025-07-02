@@ -76,7 +76,7 @@ def setup_environment():
     if not env_file.exists() and env_example.exists():
         shutil.copy(env_example, env_file)
         print("📝 已创建.env配置文件")
-        print("⚠️  请编辑.env文件，添加你的DeepSeek API Key")
+        print("⚠️  请编辑.env文件，添加你的 OpenAI 兼容 API Key")
 
 def run_tests():
     """运行测试"""
@@ -145,8 +145,8 @@ def print_usage():
     print("🚀 Chat CLI 安装完成!")
     print("="*50)
     print("\n📖 使用说明:")
-    print("1. 编辑.env文件，添加你的DeepSeek API Key:")
-    print("   DEEPSEEK_API_KEY=your_api_key_here")
+    print("1. 编辑.env文件，添加你的 OpenAI 兼容 API Key:")
+    print("   OPENAI_API_KEY=your_api_key_here")
     print("\n2. 使用命令:")
     print("   chat-cli '你好，请介绍一下自己'")
     print("   chat-cli --interactive")
@@ -187,7 +187,7 @@ def main():
     setup(
         name="chat-cli",
         version=get_version(),
-        description="A CLI tool for chatting with DeepSeek AI",
+        description="A CLI tool for chatting with OpenAI compatible AI services",
         long_description=read_file("README.md"),
         long_description_content_type="text/markdown",
         author="Your Name",
@@ -226,7 +226,7 @@ def main():
             "Topic :: Communications :: Chat",
             "Topic :: Scientific/Engineering :: Artificial Intelligence",
         ],
-        keywords="cli chat ai deepseek api chatbot",
+        keywords="cli chat ai openai api chatbot",
         project_urls={
             "Bug Reports": "https://github.com/your-username/chat-cli/issues",
             "Source": "https://github.com/your-username/chat-cli",

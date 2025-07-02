@@ -16,7 +16,7 @@ console = Console()
 @click.argument('message', required=False)
 @click.option('--interactive', '-i', is_flag=True, help='启动交互模式')
 @click.option('--system', '-s', help='系统提示词')
-@click.option('--config', 'show_config', is_flag=True, help='启动配置向导')
+@click.option('--config', 'show_config', is_flag=True, help='显示当前配置并提供修改选项')
 @click.version_option(version='0.1.0')
 def cli(message, interactive, system, show_config):
     """
@@ -28,7 +28,7 @@ def cli(message, interactive, system, show_config):
     
     chat-cli --interactive  # 交互模式
     
-    chat-cli --config  # 配置API密钥
+    chat-cli --config  # 查看配置并可选择修改
     """
     # 如果要配置，运行配置向导
     if show_config:
@@ -40,8 +40,132 @@ def cli(message, interactive, system, show_config):
 
 
 def run_config_command():
+    """运行配置管理命令"""
+    console.print(Panel("🔧 OpenAI兼容 API 配置管理", style="bold blue"))
+    
+    # 先显示当前配置
+    show_current_config()
+    
+    # 询问是否要修改配置
+    if Confirm.ask("\n[bold yellow]是否要修改配置?[/bold yellow]"):
+        run_config_wizard()
+    else:
+        console.print("[green]配置未修改[/green]")
+
+
+def show_current_config():
+    """显示当前配置内容"""
+    console.print(Panel("📋 当前配置信息", style="bold cyan"))
+    
+    # 检查配置文件
+    config_dir = Path.home() / ".config" / "chat-cli"
+    config_file = config_dir / "env"
+    
+    # 检查本地 .env 文件
+    local_env_file = Path(".env")
+    
+    current_config = {}
+    config_sources = []
+    
+    # 读取全局配置
+    if config_file.exists():
+        config_sources.append(f"全局配置: {config_file}")
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        current_config[key.strip()] = {
+                            'value': value.strip(),
+                            'source': '全局配置'
+                        }
+        except Exception as e:
+            console.print(f"[red]读取全局配置失败: {e}[/red]")
+    
+    # 读取本地配置 (会覆盖全局配置)
+    if local_env_file.exists():
+        config_sources.append(f"本地配置: {local_env_file.absolute()}")
+        try:
+            with open(local_env_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        current_config[key.strip()] = {
+                            'value': value.strip(),
+                            'source': '本地配置'
+                        }
+        except Exception as e:
+            console.print(f"[red]读取本地配置失败: {e}[/red]")
+    
+    # 检查环境变量 (会覆盖文件配置)
+    env_vars = ['OPENAI_API_KEY', 'OPENAI_BASE_URL', 'OPENAI_MODEL']
+    for var in env_vars:
+        env_value = os.getenv(var)
+        if env_value:
+            if var not in current_config or current_config[var]['value'] != env_value:
+                current_config[var] = {
+                    'value': env_value,
+                    'source': '环境变量'
+                }
+    
+    # 显示配置来源
+    if config_sources:
+        console.print("[bold green]配置文件:[/bold green]")
+        for source in config_sources:
+            console.print(f"  • {source}")
+        console.print()
+    
+    # 显示配置内容
+    if current_config:
+        console.print("[bold green]配置项:[/bold green]")
+        
+        config_items = [
+            ('OPENAI_API_KEY', 'API 密钥', True),
+            ('OPENAI_BASE_URL', 'API 基础URL', False),
+            ('OPENAI_MODEL', '模型名称', False)
+        ]
+        
+        for key, description, is_sensitive in config_items:
+            if key in current_config:
+                value = current_config[key]['value']
+                source = current_config[key]['source']
+                
+                if is_sensitive and value:
+                    # 隐藏敏感信息
+                    display_value = value[:4] + "..." + value[-4:] if len(value) > 8 else "***"
+                else:
+                    display_value = value
+                
+                console.print(f"  • [bold cyan]{description}[/bold cyan]: {display_value}")
+                console.print(f"    [dim]来源: {source}[/dim]")
+            else:
+                console.print(f"  • [bold cyan]{description}[/bold cyan]: [red]未设置[/red]")
+        
+        console.print()
+        
+        # 测试当前配置
+        console.print("[bold cyan]🧪 配置测试:[/bold cyan]")
+        try:
+            # 重新加载环境变量
+            from .client import load_env_files
+            load_env_files()
+            
+            # 尝试初始化客户端
+            client = OpenAIClient()
+            console.print("  [bold green]✅ 配置有效，可以正常使用[/bold green]")
+        except Exception as e:
+            console.print(f"  [red]❌ 配置测试失败: {e}[/red]")
+            console.print("  [yellow]建议修改配置以修复问题[/yellow]")
+    else:
+        console.print("[yellow]未找到任何配置信息[/yellow]")
+        console.print("需要进行初始配置")
+
+
+def run_config_wizard():
     """运行配置向导"""
-    console.print(Panel("🔧 OpenAI兼容 API 配置向导", style="bold blue"))
+    console.print(Panel("🔧 配置向导", style="bold blue"))
     
     # 检查现有配置
     config_dir = Path.home() / ".config" / "chat-cli"
@@ -49,7 +173,6 @@ def run_config_command():
     
     current_config = {}
     if config_file.exists():
-        console.print(f"[yellow]发现现有配置文件: {config_file}[/yellow]")
         try:
             with open(config_file, 'r', encoding='utf-8') as f:
                 for line in f:
@@ -66,21 +189,21 @@ def run_config_command():
             'key': 'OPENAI_API_KEY',
             'prompt': 'OpenAI API Key',
             'required': True,
-            'help': '获取方式:\n  - OpenAI: https://platform.openai.com/api-keys\n  - DeepSeek: https://platform.deepseek.com/\n  - 其他兼容服务的API密钥'
+            'help': '获取方式:\n  - OpenAI: https://platform.openai.com/api-keys\n  - 通义千问: https://dashscope.aliyuncs.com/\n  - 其他兼容服务的API密钥'
         },
         {
             'key': 'OPENAI_BASE_URL',
             'prompt': 'API Base URL',
             'default': 'https://api.openai.com/v1',
             'required': False,
-            'help': '常用服务:\n  - OpenAI官方: https://api.openai.com/v1\n  - DeepSeek: https://api.deepseek.com\n  - 本地服务: http://localhost:8000/v1'
+            'help': '常用服务:\n  - OpenAI官方: https://api.openai.com/v1\n  - 通义千问: https://dashscope.aliyuncs.com/compatible-mode/v1\n  - 本地服务: http://localhost:8000/v1'
         },
         {
             'key': 'OPENAI_MODEL',
             'prompt': 'Model Name',
             'default': 'gpt-3.5-turbo',
             'required': False,
-            'help': '常用模型:\n  - OpenAI: gpt-3.5-turbo, gpt-4, gpt-4-turbo\n  - DeepSeek: deepseek-chat\n  - 其他: 根据服务商文档'
+            'help': '常用模型:\n  - OpenAI: gpt-3.5-turbo, gpt-4, gpt-4-turbo\n  - 通义千问: qwen-plus, qwen-max\n  - 其他: 根据服务商文档'
         }
     ]
     

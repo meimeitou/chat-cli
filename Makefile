@@ -45,7 +45,7 @@ dev-setup: install-dev
 	@if [ ! -f .env ]; then \
 		cp .env.example .env; \
 		echo "📝 已创建.env配置文件"; \
-		echo "⚠️  请编辑.env文件，添加你的DeepSeek API Key"; \
+		echo "⚠️  请编辑.env文件，添加你的 OpenAI 兼容 API Key"; \
 	fi
 	@echo "✅ 开发环境设置完成"
 

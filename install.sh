@@ -97,7 +97,7 @@ setup_environment() {
     if [ ! -f .env ]; then
         cp .env.example .env
         print_success "已创建.env配置文件"
-        print_warning "请编辑.env文件，添加你的DeepSeek API Key"
+        print_warning "请编辑.env文件，添加你的 OpenAI 兼容 API Key"
     else
         print_info ".env文件已存在"
     fi
@@ -123,7 +123,7 @@ show_usage() {
     
     echo "📖 使用方法:"
     echo "1. 配置API Key:"
-    echo "   编辑.env文件，将DEEPSEEK_API_KEY设置为你的API Key"
+    echo "   编辑.env文件，将OPENAI_API_KEY设置为你的API Key"
     echo ""
     echo "2. 基本使用:"
     echo "   poetry run chat-cli '你好，请介绍一下自己'"
