@@ -8,6 +8,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 from rich.prompt import Prompt, Confirm
+from rich.live import Live
+from rich.markdown import Markdown
 from .client import OpenAIClient
 
 console = Console()
@@ -335,18 +337,29 @@ def run_chat_command(message, interactive, system, stream=False):
 def run_single_message(client: OpenAIClient, message: str, system_prompt: str = None, stream: bool = False):
     """运行单次问答模式"""
     if stream:
-        console.print(Panel("🤖 AI Assistant (流式输出)", style="bold blue"))
-        console.print()
-        
         full_response = ""
         try:
-            for chunk in client.chat_stream(message, system_prompt):
-                console.print(chunk, end="", style="bold")
-                full_response += chunk
-            console.print()  # 换行
-            console.print()
+            # 创建一个初始的Panel
+            panel = Panel(
+                Text("正在思考中...", style="dim italic"),
+                title="🤖 AI Assistant (流式输出)",
+                border_style="blue"
+            )
+            
+            with Live(panel, console=console, refresh_per_second=10) as live:
+                for chunk in client.chat_stream(message, system_prompt):
+                    full_response += chunk
+                    # 实时更新Panel内容
+                    live.update(Panel(
+                        Text(full_response, style="bold"),
+                        title="🤖 AI Assistant (流式输出)",
+                        border_style="blue"
+                    ))
+            
+            console.print()  # 添加一个空行
+            
         except Exception as e:
-            console.print(f"\n[red]API调用失败: {e}[/red]")
+            console.print(f"[red]API调用失败: {e}[/red]")
     else:
         try:
             response = client.chat(message, system_prompt)
@@ -376,13 +389,25 @@ def run_interactive_mode(client: OpenAIClient, system_prompt: str = None, stream
         
         try:
             if stream:
-                console.print("[bold blue]🤖 AI:[/bold blue] ", end="")
                 full_response = ""
-                for chunk in client.chat_with_history_stream(history):
-                    console.print(chunk, end="", style="bold")
-                    full_response += chunk
-                console.print()  # 换行
-                console.print()
+                # 创建初始Panel
+                panel = Panel(
+                    Text("正在思考中...", style="dim italic"),
+                    title="🤖 AI Assistant",
+                    border_style="blue"
+                )
+                
+                with Live(panel, console=console, refresh_per_second=10) as live:
+                    for chunk in client.chat_with_history_stream(history):
+                        full_response += chunk
+                        # 实时更新Panel内容
+                        live.update(Panel(
+                            Text(full_response, style="bold"),
+                            title="🤖 AI Assistant",
+                            border_style="blue"
+                        ))
+                
+                console.print()  # 添加空行
                 history.append({"role": "assistant", "content": full_response})
             else:
                 response = client.chat_with_history(history)
