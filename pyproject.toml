@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "chat-cli"
+version = "0.1.0"
+description = "A CLI tool for chatting with OpenAI compatible APIs"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.8.1"
+openai = "^1.0.0"
+click = "^8.1.0"
+colorama = "^0.4.6"
+python-dotenv = "^1.0.0"
+rich = "^13.7.0"
+tomli = {version = "^2.0.0", markers = "python_version < '3.11'"}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+black = "^23.0.0"
+flake8 = "^6.0.0"
+build = "^1.2.2.post1"
+
+
+[tool.poetry.scripts]
+chat-cli = "src.main:cli"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
