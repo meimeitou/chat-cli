@@ -15,6 +15,51 @@ from .client import OpenAIClient
 
 console = Console()
 
+def is_terminal_compatible():
+    """检测终端是否兼容复杂渲染"""
+    # 检查终端类型
+    term = os.getenv('TERM', '').lower()
+    term_program = os.getenv('TERM_PROGRAM', '').lower()
+    
+    # VS Code 终端（包括远程开发）支持复杂渲染
+    if term_program == 'vscode':
+        return True
+    
+    # 其他现代终端也支持复杂渲染
+    modern_terminals = [
+        'wezterm',
+        'alacritty',
+        'kitty',
+        'windows terminal',
+        'gnome-terminal',
+        'konsole',
+        'terminal.app',  # macOS Terminal 实际上也支持基本的复杂渲染
+    ]
+    
+    if term_program in modern_terminals:
+        return True
+        # 检查是否在SSH连接中
+    if os.getenv('SSH_CLIENT') or os.getenv('SSH_TTY'):
+        return False
+    # 检查 TERM 环境变量中的现代终端特征
+    if any(modern_term in term for modern_term in ['xterm-256color', 'screen-256color', 'tmux-256color']):
+        return True
+    
+    # 已知可能有问题的终端
+    problematic_terms = [
+        'screen',  # 基本的 screen 环境
+        'linux',   # 基本的 Linux 控制台
+        'dumb',    # 哑终端
+    ]
+    
+    # 检查是否在问题终端中
+    if term in problematic_terms:
+        return False
+    
+    # 默认情况下，假设现代终端都支持复杂渲染
+    # 除非明确检测到不支持的环境
+    return True
+
 def get_config_dir():
     """获取跨平台配置目录"""
     if platform.system() == "Windows":
@@ -42,8 +87,9 @@ def get_config_dir():
 @click.option('--system', '-s', help='系统提示词')
 @click.option('--config', 'show_config', is_flag=True, help='显示当前配置并提供修改选项')
 @click.option('--disable-stream', is_flag=True, help='禁用流式输出（默认启用）')
+@click.option('--simple-stream', is_flag=True, help='强制使用简化的流式输出（解决终端显示问题）')
 @click.version_option(version='0.1.0')
-def cli(message, interactive, system, show_config, disable_stream):
+def cli(message, interactive, system, show_config, disable_stream, simple_stream):
     """
     OpenAI兼容 AI 命令行聊天工具
     
@@ -55,6 +101,8 @@ def cli(message, interactive, system, show_config, disable_stream):
     
     chat-cli --disable-stream "请介绍一下自己"  # 禁用流式输出
     
+    chat-cli --simple-stream "请介绍一下自己"  # 简化流式输出（兼容性更好）
+    
     chat-cli --config  # 查看配置并可选择修改
     """
     # 如果要配置，运行配置向导
@@ -65,7 +113,7 @@ def cli(message, interactive, system, show_config, disable_stream):
     # 执行聊天功能
     # 默认启用流式输出，除非用户明确禁用
     stream = not disable_stream
-    run_chat_command(message, interactive, system, stream)
+    run_chat_command(message, interactive, system, stream, simple_stream)
 
 
 def run_config_command():
@@ -334,7 +382,7 @@ OPENAI_MODEL={new_config['OPENAI_MODEL']}
         sys.exit(1)
 
 
-def run_chat_command(message, interactive, system, stream=False):
+def run_chat_command(message, interactive, system, stream=False, simple_stream=False):
     """执行聊天命令的核心逻辑"""
     try:
         client = OpenAIClient()
@@ -348,40 +396,68 @@ def run_chat_command(message, interactive, system, stream=False):
         sys.exit(1)
     
     if interactive:
-        run_interactive_mode(client, system, stream)
+        run_interactive_mode(client, system, stream, simple_stream)
     elif message:
-        run_single_message(client, message, system, stream)
+        run_single_message(client, message, system, stream, simple_stream)
     else:
         console.print("请提供消息或使用 --interactive 模式")
         console.print("使用 --help 查看帮助信息")
 
 
-def run_single_message(client: OpenAIClient, message: str, system_prompt: str = None, stream: bool = False):
+def run_single_message(client: OpenAIClient, message: str, system_prompt: str = None, stream: bool = False, simple_stream: bool = False):
     """运行单次问答模式"""
     if stream:
-        full_response = ""
-        try:
-            # 创建一个初始的Panel
-            panel = Panel(
-                Text("正在思考中...", style="dim italic"),
-                title="🤖 AI Assistant (流式输出)",
-                border_style="blue"
-            )
+        # 检查是否使用简化流式输出
+        # 如果用户明确指定了 --simple-stream，则强制使用简化模式
+        # 否则根据终端兼容性自动判断
+        if simple_stream:
+            use_simple = True
+        else:
+            use_simple = not is_terminal_compatible()
+        
+        if use_simple:
+            # 简化的流式输出，避免复杂渲染
+            console.print("[bold blue]🤖 AI Assistant:[/bold blue]")
+            console.print()
             
-            with Live(panel, console=console, refresh_per_second=10) as live:
+            full_response = ""
+            try:
                 for chunk in client.chat_stream(message, system_prompt):
                     full_response += chunk
-                    # 实时更新Panel内容
-                    live.update(Panel(
-                        Text(full_response, style="bold"),
-                        title="🤖 AI Assistant (流式输出)",
-                        border_style="blue"
-                    ))
-            
-            console.print()  # 添加一个空行
-            
-        except Exception as e:
-            console.print(f"[red]API调用失败: {e}[/red]")
+                    # 直接输出字符，不使用Panel
+                    console.print(chunk, end="", highlight=False)
+                
+                console.print()  # 换行
+                console.print()  # 空行
+                
+            except Exception as e:
+                console.print(f"[red]API调用失败: {e}[/red]")
+        else:
+            # 使用Rich Panel的流式输出（优化版本）
+            full_response = ""
+            try:
+                # 创建一个初始的Panel
+                panel = Panel(
+                    Text("正在思考中...", style="dim italic"),
+                    title="🤖 AI Assistant (流式输出)",
+                    border_style="blue"
+                )
+                
+                # 降低刷新频率，提高稳定性
+                with Live(panel, console=console, refresh_per_second=4) as live:
+                    for chunk in client.chat_stream(message, system_prompt):
+                        full_response += chunk
+                        # 实时更新Panel内容
+                        live.update(Panel(
+                            Text(full_response, style="bold"),
+                            title="🤖 AI Assistant (流式输出)",
+                            border_style="blue"
+                        ))
+                
+                console.print()  # 添加一个空行
+                
+            except Exception as e:
+                console.print(f"[red]API调用失败: {e}[/red]")
     else:
         try:
             response = client.chat(message, system_prompt)
@@ -389,10 +465,21 @@ def run_single_message(client: OpenAIClient, message: str, system_prompt: str = 
         except Exception as e:
             console.print(f"[red]API调用失败: {e}[/red]")
 
-def run_interactive_mode(client: OpenAIClient, system_prompt: str = None, stream: bool = False):
+def run_interactive_mode(client: OpenAIClient, system_prompt: str = None, stream: bool = False, simple_stream: bool = False):
     """运行交互模式"""
+    # 检查是否使用简化流式输出
+    # 如果用户明确指定了 --simple-stream，则强制使用简化模式
+    # 否则根据终端兼容性自动判断
+    if simple_stream:
+        use_simple = True
+    else:
+        use_simple = not is_terminal_compatible()
+    
     if stream:
-        console.print(Panel("进入交互模式（流式输出），输入 'exit' 退出。", title="🤖 AI Assistant"))
+        if use_simple:
+            console.print(Panel("进入交互模式（简化流式输出），输入 'exit' 退出。", title="🤖 AI Assistant"))
+        else:
+            console.print(Panel("进入交互模式（流式输出），输入 'exit' 退出。", title="🤖 AI Assistant"))
     else:
         console.print(Panel("进入交互模式，输入 'exit' 退出。", title="🤖 AI Assistant"))
     
@@ -411,26 +498,42 @@ def run_interactive_mode(client: OpenAIClient, system_prompt: str = None, stream
         
         try:
             if stream:
-                full_response = ""
-                # 创建初始Panel
-                panel = Panel(
-                    Text("正在思考中...", style="dim italic"),
-                    title="🤖 AI Assistant",
-                    border_style="blue"
-                )
-                
-                with Live(panel, console=console, refresh_per_second=10) as live:
+                if use_simple:
+                    # 简化的流式输出
+                    console.print("[bold blue]🤖 AI Assistant:[/bold blue]")
+                    console.print()
+                    
+                    full_response = ""
                     for chunk in client.chat_with_history_stream(history):
                         full_response += chunk
-                        # 实时更新Panel内容
-                        live.update(Panel(
-                            Text(full_response, style="bold"),
-                            title="🤖 AI Assistant",
-                            border_style="blue"
-                        ))
-                
-                console.print()  # 添加空行
-                history.append({"role": "assistant", "content": full_response})
+                        console.print(chunk, end="", highlight=False)
+                    
+                    console.print()  # 换行
+                    console.print()  # 空行
+                    history.append({"role": "assistant", "content": full_response})
+                else:
+                    # 使用Rich Panel的流式输出（优化版本）
+                    full_response = ""
+                    # 创建初始Panel
+                    panel = Panel(
+                        Text("正在思考中...", style="dim italic"),
+                        title="🤖 AI Assistant",
+                        border_style="blue"
+                    )
+                    
+                    # 降低刷新频率
+                    with Live(panel, console=console, refresh_per_second=4) as live:
+                        for chunk in client.chat_with_history_stream(history):
+                            full_response += chunk
+                            # 实时更新Panel内容
+                            live.update(Panel(
+                                Text(full_response, style="bold"),
+                                title="🤖 AI Assistant",
+                                border_style="blue"
+                            ))
+                    
+                    console.print()  # 添加空行
+                    history.append({"role": "assistant", "content": full_response})
             else:
                 response = client.chat_with_history(history)
                 history.append({"role": "assistant", "content": response})
