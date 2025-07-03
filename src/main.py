@@ -3,6 +3,7 @@
 import click
 import sys
 import os
+import platform
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
@@ -13,6 +14,27 @@ from rich.markdown import Markdown
 from .client import OpenAIClient
 
 console = Console()
+
+def get_config_dir():
+    """获取跨平台配置目录"""
+    if platform.system() == "Windows":
+        # Windows: 使用 APPDATA 目录
+        appdata = os.getenv('APPDATA')
+        if appdata:
+            return Path(appdata) / "chat-cli"
+        else:
+            # 回退到用户目录
+            return Path.home() / "AppData" / "Roaming" / "chat-cli"
+    elif platform.system() == "Darwin":
+        # macOS: 使用标准应用程序支持目录
+        return Path.home() / "Library" / "Application Support" / "chat-cli"
+    else:
+        # Linux/Unix: 使用 XDG 标准或 .config
+        xdg_config_home = os.getenv('XDG_CONFIG_HOME')
+        if xdg_config_home:
+            return Path(xdg_config_home) / "chat-cli"
+        else:
+            return Path.home() / ".config" / "chat-cli"
 
 @click.command()
 @click.argument('message', required=False)
@@ -64,8 +86,8 @@ def show_current_config():
     """显示当前配置内容"""
     console.print(Panel("📋 当前配置信息", style="bold cyan"))
     
-    # 检查配置文件
-    config_dir = Path.home() / ".config" / "chat-cli"
+    # 检查配置文件 - 使用跨平台配置目录
+    config_dir = get_config_dir()
     config_file = config_dir / "env"
     
     # 检查本地 .env 文件
@@ -174,8 +196,8 @@ def run_config_wizard():
     """运行配置向导"""
     console.print(Panel("🔧 配置向导", style="bold blue"))
     
-    # 检查现有配置
-    config_dir = Path.home() / ".config" / "chat-cli"
+    # 检查现有配置 - 使用跨平台配置目录
+    config_dir = get_config_dir()
     config_file = config_dir / "env"
     
     current_config = {}

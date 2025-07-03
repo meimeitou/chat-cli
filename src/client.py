@@ -1,16 +1,39 @@
 """OpenAI compatible API client module."""
 
 import os
+import platform
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Generator
 from openai import OpenAI
 from dotenv import load_dotenv
 
 
+def get_config_dir():
+    """获取跨平台配置目录"""
+    if platform.system() == "Windows":
+        # Windows: 使用 APPDATA 目录
+        appdata = os.getenv('APPDATA')
+        if appdata:
+            return Path(appdata) / "chat-cli"
+        else:
+            # 回退到用户目录
+            return Path.home() / "AppData" / "Roaming" / "chat-cli"
+    elif platform.system() == "Darwin":
+        # macOS: 使用标准应用程序支持目录
+        return Path.home() / "Library" / "Application Support" / "chat-cli"
+    else:
+        # Linux/Unix: 使用 XDG 标准或 .config
+        xdg_config_home = os.getenv('XDG_CONFIG_HOME')
+        if xdg_config_home:
+            return Path(xdg_config_home) / "chat-cli"
+        else:
+            return Path.home() / ".config" / "chat-cli"
+
+
 def load_env_files():
     """Load environment variables from multiple sources."""
-    # Load from global config directory first
-    global_config_dir = Path.home() / ".config" / "chat-cli"
+    # Load from global config directory first - 使用跨平台配置目录
+    global_config_dir = get_config_dir()
     global_env_file = global_config_dir / "env"
     
     if global_env_file.exists():
